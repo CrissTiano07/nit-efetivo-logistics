@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d1826">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>NIT EFETIVO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="efetivo.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TOASTS                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  TELA DE LOGIN                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-badge">NIT</div>
+    <div class="login-logo">EFETIVO</div>
+    <div class="login-tagline">NÚCLEO DE INTELIGÊNCIA DE TRÁFEGO</div>
+    <div class="login-sub">CONTROLE OPERACIONAL DE EFETIVO</div>
+
+    <button class="btn-google" onclick="NIT_EFETIVO.Auth.login()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2045c0-.638-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087C16.6582 14.0127 17.64 11.8118 17.64 9.2045z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.4673-.8059 5.9564-2.1805l-2.9087-2.2582c-.8059.54-1.8368.8591-3.0477.8591-2.3441 0-4.3282-1.5832-5.036-3.7105H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71c-.18-.54-.2823-1.1168-.2823-1.71s.1023-1.17.2823-1.71V4.9582H.9574C.3477 6.1732 0 7.5477 0 9s.3477 2.8268.9574 4.0418L3.964 10.71z" fill="#FBBC05"/>
+        <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5814-2.5814C13.4627.8918 11.4255 0 9 0 5.4818 0 2.4382 2.0168.9574 4.9582L3.964 7.29C4.6718 5.1627 6.6559 3.5795 9 3.5795z" fill="#EA4335"/>
+      </svg>
+      Entrar com Google
+    </button>
+
+    <div class="login-divider">ou</div>
+
+    <a href="?modo=campo" class="btn-campo-link">
+      <span>🔍</span> Consultar meu QTH (agente de campo)
+    </a>
+
+    <div class="login-footer">
+      Sistema restrito · AMC Fortaleza
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  MODO CAMPO — consulta pública de QTH                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="app-campo" class="hidden">
+  <div class="campo-wrapper">
+
+    <header class="campo-header">
+      <div class="campo-header-top">
+        <div class="campo-logo-group">
+          <span class="campo-nit">NIT</span>
+          <span class="campo-efetivo-label">EFETIVO</span>
+        </div>
+        <div id="relogio-campo" class="campo-relogio">--:--:--</div>
+      </div>
+      <div class="campo-titulo">CONSULTA DE QTH</div>
+      <div class="campo-turno-badge" id="campo-turno-badge">CARREGANDO...</div>
+    </header>
+
+    <div class="campo-search-area">
+      <div class="campo-search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          id="campo-busca"
+          type="text"
+          class="campo-input"
+          placeholder="Digite seu nome completo..."
+          oninput="NIT_EFETIVO.Campo.buscar(this.value)"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          enterkeyhint="search"
+        >
+        <button class="campo-clear-btn" onclick="NIT_EFETIVO.Campo.limpar()" aria-label="Limpar">✕</button>
+      </div>
+      <p class="campo-hint">Mínimo 2 letras · Confirme pela matrícula</p>
+    </div>
+
+    <div id="campo-loading" class="campo-loading hidden">
+      <div class="spinner"></div>
+      <span>Carregando escala ativa...</span>
+    </div>
+
+    <div id="campo-resultado" class="campo-resultado-area"></div>
+
+    <footer class="campo-footer">
+      <a href="/" class="campo-back-link">← Painel de controle</a>
+      <span class="campo-version">v1.0 MVP</span>
+    </footer>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  DASHBOARD — supervisores / monitores / admin              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="app-dashboard" class="hidden">
+
+  <!-- NAV ──────────────────────────────────────────────────── -->
+  <nav class="dash-nav">
+    <div class="nav-brand">
+      <span class="nav-nit">NIT</span>
+      <span class="nav-efetivo">EFETIVO</span>
+      <span class="nav-sep">//</span>
+      <span class="nav-version">v1.0</span>
+    </div>
+    <div class="nav-center">
+      <div id="relogio-dash" class="nav-relogio">--:--:--</div>
+    </div>
+    <div class="nav-right">
+      <span id="dash-role" class="nav-role-badge"></span>
+      <span id="dash-user" class="nav-user"></span>
+      <button class="btn-nav-logout" onclick="NIT_EFETIVO.Auth.logout()">SAIR</button>
+    </div>
+  </nav>
+
+  <!-- TABS ─────────────────────────────────────────────────── -->
+  <div class="tabs-bar" role="tablist">
+    <button class="tab-btn active" data-tab="escala" role="tab"
+      onclick="NIT_EFETIVO.UI.switchTab('escala')">
+      📋 ESCALA ATIVA
+    </button>
+    <button class="tab-btn" data-tab="recursos" role="tab"
+      onclick="NIT_EFETIVO.UI.switchTab('recursos'); NIT_EFETIVO.UI.renderRecursos()">
+      👥 RECURSOS
+    </button>
+    <button class="tab-btn" data-tab="metricas" role="tab"
+      onclick="NIT_EFETIVO.UI.switchTab('metricas'); NIT_EFETIVO.UI.renderMetricas()">
+      📊 TELEMETRIA
+    </button>
+    <button class="tab-btn" data-tab="campo-preview" role="tab"
+      onclick="NIT_EFETIVO.UI.switchTab('campo-preview')">
+      🔍 MODO CAMPO
+    </button>
+  </div>
+
+  <!-- TAB: ESCALA ──────────────────────────────────────────── -->
+  <div id="tab-escala" class="tab-pane active" role="tabpanel">
+    <div id="escala-container" class="escala-container">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Sincronizando com Firebase...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: RECURSOS ────────────────────────────────────────── -->
+  <div id="tab-recursos" class="tab-pane hidden" role="tabpanel">
+    <div id="recursos-container" class="recursos-container">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Carregando banco de recursos...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: MÉTRICAS ────────────────────────────────────────── -->
+  <div id="tab-metricas" class="tab-pane hidden" role="tabpanel">
+    <div id="metricas-container" class="metricas-container"></div>
+  </div>
+
+  <!-- TAB: CAMPO PREVIEW ───────────────────────────────────── -->
+  <div id="tab-campo-preview" class="tab-pane hidden" role="tabpanel">
+    <div class="campo-preview-wrapper">
+      <div class="preview-header">
+        <span class="preview-label">SIMULAÇÃO — como o agente verá na tela do celular</span>
+        <a href="?modo=campo" target="_blank" class="btn btn-secondary btn-sm">Abrir modo campo ↗</a>
+      </div>
+      <div class="campo-search-area">
+        <div class="campo-search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            id="preview-busca"
+            type="text"
+            class="campo-input"
+            placeholder="Buscar agente..."
+            oninput="NIT_EFETIVO.Campo.buscar(this.value, 'preview-resultado')"
+            autocomplete="off">
+        </div>
+      </div>
+      <div id="preview-resultado" class="campo-resultado-area"></div>
+    </div>
+  </div>
+
+</div><!-- /#app-dashboard -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  MODAIS                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Abrir Turno ──────────────────────────────────────── -->
+<div id="modal-criar-escala" class="modal-overlay" onclick="NIT_EFETIVO.Modals._onOverlayClick(event,'modal-criar-escala')">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>ABRIR TURNO</h3>
+      <button class="modal-close" onclick="NIT_EFETIVO.Modals.fecharCriarEscala()">×</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Data</label>
+      <input id="nova-escala-data" type="date" class="input-field">
+
+      <label class="form-label">Turno</label>
+      <select id="nova-escala-turno" class="select-field" onchange="NIT_EFETIVO.Modals.onTurnoChange()">
+        <option value="manha">MANHÃ</option>
+        <option value="tarde">TARDE</option>
+        <option value="noite">NOITE</option>
+        <option value="especial">ESPECIAL / EVENTO</option>
+      </select>
+
+      <div class="form-row">
+        <div>
+          <label class="form-label">Início</label>
+          <input id="nova-escala-inicio" type="time" class="input-field" value="05:30">
+        </div>
+        <div>
+          <label class="form-label">Fim</label>
+          <input id="nova-escala-fim" type="time" class="input-field" value="11:30">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="NIT_EFETIVO.Modals.fecharCriarEscala()">CANCELAR</button>
+      <button class="btn btn-primary" onclick="NIT_EFETIVO.Modals.confirmarCriarEscala()">ABRIR TURNO</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova Operação ─────────────────────────────────────── -->
+<div id="modal-add-operacao" class="modal-overlay" onclick="NIT_EFETIVO.Modals._onOverlayClick(event,'modal-add-operacao')">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>NOVA OPERAÇÃO</h3>
+      <button class="modal-close" onclick="NIT_EFETIVO.Modals.fecharAddOperacao()">×</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Nome da operação / evento *</label>
+      <input id="op-nome" type="text" class="input-field" placeholder="Ex: CICLOFAIXA DE LAZER" autocomplete="off">
+
+      <label class="form-label">Bairro / Área</label>
+      <input id="op-bairro" type="text" class="input-field" placeholder="Ex: ALDEOTA">
+
+      <label class="form-label">Horário de início</label>
+      <input id="op-horario" type="time" class="input-field">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="NIT_EFETIVO.Modals.fecharAddOperacao()">CANCELAR</button>
+      <button class="btn btn-primary" onclick="NIT_EFETIVO.Modals.confirmarAddOperacao()">ADICIONAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Adicionar QRU/Posto ──────────────────────────────── -->
+<div id="modal-add-posto" class="modal-overlay" onclick="NIT_EFETIVO.Modals._onOverlayClick(event,'modal-add-posto')">
+  <div class="modal-card modal-card-lg">
+    <div class="modal-header">
+      <h3>ADICIONAR QRU / POSTO</h3>
+      <button class="modal-close" onclick="NIT_EFETIVO.Modals.fecharAddPosto()">×</button>
+    </div>
+    <div class="modal-body">
+      <input id="posto-operacao-id" type="hidden">
+
+      <label class="form-label">Endereço / Local *</label>
+      <input id="posto-local" type="text" class="input-field" placeholder="Ex: AV DES MOREIRA X AV DOM LUÍS" autocomplete="off">
+
+      <div class="form-row">
+        <div>
+          <label class="form-label">Bairro</label>
+          <input id="posto-bairro" type="text" class="input-field">
+        </div>
+        <div>
+          <label class="form-label">Horário</label>
+          <input id="posto-horario" type="time" class="input-field">
+        </div>
+      </div>
+
+      <label class="form-label">Tipo de ação</label>
+      <select id="posto-tipo-acao" class="select-field"></select>
+
+      <label class="form-label">Agente / Viatura *</label>
+      <select id="posto-recurso-select" class="select-field select-lg"></select>
+
+      <label class="form-label">Pessoas neste QRU</label>
+      <input id="posto-qru-pessoas" type="number" class="input-field" value="1" min="1" max="20">
+
+      <label class="form-label">Observação</label>
+      <input id="posto-obs" type="text" class="input-field" placeholder="Opcional">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="NIT_EFETIVO.Modals.fecharAddPosto()">CANCELAR</button>
+      <button class="btn btn-primary" onclick="NIT_EFETIVO.Modals.confirmarAddPosto()">ADICIONAR QRU</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cadastrar Recurso ────────────────────────────────── -->
+<div id="modal-cadastro-recurso" class="modal-overlay" onclick="NIT_EFETIVO.Modals._onOverlayClick(event,'modal-cadastro-recurso')">
+  <div class="modal-card modal-card-lg">
+    <div class="modal-header">
+      <h3>CADASTRAR RECURSO</h3>
+      <button class="modal-close" onclick="NIT_EFETIVO.Modals.fecharCadastroRecurso()">×</button>
+    </div>
+    <div class="modal-body modal-grid-2">
+      <div class="grid-full">
+        <label class="form-label">Nome completo *</label>
+        <input id="rec-nome" type="text" class="input-field" autocomplete="off">
+      </div>
+      <div>
+        <label class="form-label">Matrícula *</label>
+        <input id="rec-matricula" type="text" class="input-field">
+      </div>
+      <div>
+        <label class="form-label">Cargo</label>
+        <select id="rec-cargo" class="select-field">
+          <option value="">Selecionar...</option>
+          <option>SUPERVISOR</option>
+          <option>AUXILIAR</option>
+          <option>MOTOCICLISTA</option>
+          <option>MONITOR</option>
+          <option>ORIENTADOR</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Turno padrão</label>
+        <select id="rec-turno" class="select-field">
+          <option value="manha">MANHÃ</option>
+          <option value="tarde">TARDE</option>
+          <option value="noite">NOITE</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Telefone</label>
+        <input id="rec-telefone" type="tel" class="input-field" placeholder="99999-9999">
+      </div>
+      <div>
+        <label class="form-label">Transporte</label>
+        <select id="rec-transporte" class="select-field">
+          <option value="proprio">PRÓPRIO</option>
+          <option value="coletivo">COLETIVO</option>
+          <option value="moto">MOTO</option>
+          <option value="outro">OUTRO</option>
+        </select>
+      </div>
+      <div class="grid-full">
+        <label class="form-label">Bairro</label>
+        <input id="rec-bairro" type="text" class="input-field">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="NIT_EFETIVO.Modals.fecharCadastroRecurso()">CANCELAR</button>
+      <button class="btn btn-primary" onclick="NIT_EFETIVO.Modals.confirmarCadastroRecurso()">CADASTRAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Adicionar à Supervisão ───────────────────────────── -->
+<div id="modal-add-supervisao" class="modal-overlay" onclick="NIT_EFETIVO.Modals._onOverlayClick(event,'modal-add-supervisao')">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>SUPERVISÃO E MONITORAMENTO</h3>
+      <button class="modal-close" onclick="NIT_EFETIVO.Modals.fecharAddSupervisao()">×</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Recurso *</label>
+      <select id="sup-recurso-select" class="select-field select-lg"></select>
+
+      <label class="form-label">Função na supervisão</label>
+      <select id="sup-camada" class="select-field">
+        <option value="supervisores">SUPERVISOR</option>
+        <option value="auxiliares">AUXILIAR</option>
+        <option value="motociclistas">MOTOCICLISTA</option>
+        <option value="monitores">MONITOR</option>
+      </select>
+
+      <label class="form-label">Missão / Função específica</label>
+      <input id="sup-funcao" type="text" class="input-field" placeholder="Ex: APOIO AOS QTH's, CORRIDA SEFAZ">
+
+      <label class="form-label">Contato direto</label>
+      <input id="sup-contato" type="text" class="input-field" placeholder="Ex: 99166-5213">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="NIT_EFETIVO.Modals.fecharAddSupervisao()">CANCELAR</button>
+      <button class="btn btn-primary" onclick="NIT_EFETIVO.Modals.confirmarAddSupervisao()">ADICIONAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--  FIREBASE + APP                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="efetivo.js"></script>
+</body>
+</html>
