@@ -103,6 +103,10 @@
         .cloud-status.connecting { color: var(--info); border-color: var(--info); }
         .cloud-status.connecting .cloud-dot { background: var(--info); animation: pulseDot 1s infinite; }
         @keyframes pulseDot { 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+
+        .pill-filtro { background: transparent; border: 1px solid var(--line); color: var(--text); opacity: 0.5; padding: 7px 15px; border-radius: 20px; font-family: 'JetBrains Mono'; font-size: 0.6rem; font-weight: 900; cursor: pointer; transition: 0.2s; }
+        .pill-filtro:hover { opacity: 0.85; }
+        .pill-filtro.active { opacity: 1; border-color: var(--info); color: var(--info); background: rgba(0,180,255,0.08); }
     </style>
 </head>
 <body>
@@ -115,6 +119,7 @@
 <div id="modalReports" class="modal">
     <div class="modal-content">
         <div id="modalTitle" class="field-label" style="color:var(--info); font-size: 0.6rem; margin-bottom: 20px;">RELATÓRIO_SISTEMA</div>
+        <div id="modalFiltros" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 18px;"></div>
         <div id="reportList" style="background:rgba(0,0,0,0.3); padding:25px; font-family:'JetBrains Mono'; font-size:0.75rem; border-radius:12px; max-height:350px; overflow-y:auto; line-height:1.8; border:1px solid var(--line);"></div>
         <button class="btn-action" style="margin-top: 25px;" onclick="document.getElementById('modalReports').style.display='none'">FECHAR_RELATORIO</button>
     </div>
@@ -303,7 +308,7 @@
     };
 
     const UI = {
-        currentTab: 'rotina', chart: null,
+        currentTab: 'rotina', chart: null, modalTipo: null, modalTurno: 'TODOS',
         setTab(tab) {
             this.currentTab = tab;
             ['btnRotina','btnGeduc','btnReserva'].forEach(id => document.getElementById(id)?.classList.remove('active'));
@@ -366,10 +371,24 @@
             } else { this.chart.data.datasets[0].data = [disp, esc, aus]; this.chart.update('none'); }
         },
         abrirLista(tipo) {
-            const lista = App.data.ativos.filter(a => tipo === 'selecionados' ? a.s === 'escalado' : a.s === 'disponivel');
-            document.getElementById('modalTitle').innerText = tipo === 'selecionados' ? "EQUIPE_ESCALADA" : "EQUIPE_REMANESCENTE";
-            document.getElementById('reportList').innerText = lista.map(a => `• ${a.n} (${a.t})`).join('\n') || "SEM_REGISTROS";
+            this.modalTipo = tipo;
+            this.modalTurno = 'TODOS';
+            this.renderModalList();
             document.getElementById('modalReports').style.display = 'block';
+        },
+        setModalTurno(grupo) { this.modalTurno = grupo; this.renderModalList(); },
+        renderModalList() {
+            const status = this.modalTipo === 'selecionados' ? 'escalado' : 'disponivel';
+            const listaCompleta = App.data.ativos.filter(a => a.s === status);
+            const grupos = ['TODOS', ...[...new Set(App.data.ativos.map(a => a.t))].sort()];
+            document.getElementById('modalFiltros').innerHTML = grupos.map(g => {
+                const count = g === 'TODOS' ? listaCompleta.length : listaCompleta.filter(a => a.t === g).length;
+                const active = this.modalTurno === g ? 'active' : '';
+                return `<button class="pill-filtro ${active}" onclick="UI.setModalTurno('${g}')">${g} (${count})</button>`;
+            }).join('');
+            const listaFiltrada = this.modalTurno === 'TODOS' ? listaCompleta : listaCompleta.filter(a => a.t === this.modalTurno);
+            document.getElementById('modalTitle').innerText = this.modalTipo === 'selecionados' ? "EQUIPE_ESCALADA" : "EQUIPE_REMANESCENTE";
+            document.getElementById('reportList').innerText = listaFiltrada.map(a => `• ${a.n} (${a.t})`).join('\n') || "SEM_REGISTROS_NESTE_GRUPO";
         },
         toast(m, showUndo = true) { 
             const t = document.getElementById('toast'); document.getElementById('toastMsg').innerText = m;
