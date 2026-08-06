@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NIT-EFETIVO // LOGISTICS V9.9</title>
+    <title>NIT-ESCALA-LOGÍSTICA V10</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:ital,wght@0,300;0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -93,6 +93,16 @@
 
         @keyframes copyFlash { 0% { background-color: var(--info); color: white; } 100% { background-color: transparent; } }
         .copy-active { animation: copyFlash 0.4s ease-out; }
+
+        .cloud-status { display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono'; font-size:0.55rem; font-weight:900; letter-spacing:1px; padding: 9px 16px; border-radius: 20px; border:1px solid var(--line); transition:0.3s; }
+        .cloud-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; transition:0.3s; background: var(--text-secondary); }
+        .cloud-status.online { color: var(--success); border-color: var(--success); }
+        .cloud-status.online .cloud-dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .cloud-status.offline { color: var(--danger); border-color: var(--danger); }
+        .cloud-status.offline .cloud-dot { background: var(--danger); }
+        .cloud-status.connecting { color: var(--info); border-color: var(--info); }
+        .cloud-status.connecting .cloud-dot { background: var(--info); animation: pulseDot 1s infinite; }
+        @keyframes pulseDot { 0%,100%{opacity:1;} 50%{opacity:0.25;} }
     </style>
 </head>
 <body>
@@ -112,8 +122,9 @@
 
 <div class="premium-container">
     <header class="header">
-        <div><div class="system-tag">"NIT-EFETIVO-LOGISTICS // O SILÊNCIO DAS SOMBRAS É O ECO DA PRÓPRIA LUZ"</div><div id="clock">00:00:00</div></div>
-        <div style="display:flex; gap: 12px;">
+        <div><div class="system-tag">"NIT-ESCALA-LOGÍSTICA // O SILÊNCIO DAS SOMBRAS É O ECO DA PRÓPRIA LUZ"</div><div id="clock">00:00:00</div></div>
+        <div style="display:flex; gap: 12px; align-items:center;">
+            <div id="cloudStatus" class="cloud-status connecting"><span class="cloud-dot"></span><span id="cloudStatusText">CONECTANDO...</span></div>
             <button class="nav-btn" style="padding: 10px 20px; opacity: 1;" onclick="toggleTheme()">INTERFACE</button>
             <button class="nav-btn" style="padding: 10px 20px; opacity: 1;" onclick="document.getElementById('importFile').click()">IMPORTAR</button>
             <input type="file" id="importFile" style="display: none;" accept=".json" onchange="App.importar(this)">
@@ -190,18 +201,33 @@
 <script>
     // ====== CONFIG_NUVEM (Firebase RTDB) ======
     // Preencha com o MESMO config do projeto Firebase já usado na NIT (Console > Configurações do projeto > SDK).
-    // DB_PATH usa um nó próprio ('nit_efetivo') pra não colidir com os dados da NIT no mesmo Realtime Database.
+    // DB_PATH usa um nó próprio ('logistica_escala') pra não colidir com o nó 'efetivo' (sistema de recursos/viaturas) já existente na NIT.
     const firebaseConfig = {
         apiKey: "COLE_AQUI_SUA_API_KEY",
         authDomain: "SEU_PROJETO.firebaseapp.com",
         databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
         projectId: "SEU_PROJETO"
     };
-    const DB_PATH = 'nit_efetivo';
+    const DB_PATH = 'logistica_escala';
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     let cloudPronta = false; // evita gravar de volta antes da 1ª leitura da nuvem
+    let socketConectado = false; // reflete .info/connected (conexão real com o Firebase)
+
+    function setCloudBadge() {
+        const el = document.getElementById('cloudStatus');
+        const txt = document.getElementById('cloudStatusText');
+        if (!el || !txt) return;
+        let estado, msg;
+        if (!socketConectado) { estado = 'offline'; msg = 'SEM_CONEXAO_NUVEM'; }
+        else if (!cloudPronta) { estado = 'connecting'; msg = 'SINCRONIZANDO...'; }
+        else { estado = 'online'; msg = 'NUVEM_CONECTADA'; }
+        el.className = 'cloud-status ' + estado;
+        txt.innerText = msg;
+    }
+    // Nó especial do Firebase: reflete a conexão real do socket, independe de auth/regras.
+    db.ref('.info/connected').on('value', snap => { socketConectado = snap.val() === true; setCloudBadge(); });
 
     const App = {
         data: { ativos: JSON.parse(localStorage.getItem('vl_ativos')) || [], reserva: JSON.parse(localStorage.getItem('vl_reserva')) || [] },
@@ -227,10 +253,11 @@
                     db.ref(DB_PATH).set({ ativos: this.data.ativos, reserva: this.data.reserva });
                 }
                 cloudPronta = true;
+                setCloudBadge();
                 localStorage.setItem('vl_ativos', JSON.stringify(this.data.ativos));
                 localStorage.setItem('vl_reserva', JSON.stringify(this.data.reserva));
                 UI.render();
-            }, err => { console.error('ERRO_LEITURA_NUVEM:', err); UI.toast('SEM_CONEXAO_NUVEM (modo local)', false); });
+            }, err => { console.error('ERRO_LEITURA_NUVEM:', err); cloudPronta = false; setCloudBadge(); UI.toast('SEM_CONEXAO_NUVEM (modo local)', false); });
         },
         undo() { if(!this.history) return; this.data = JSON.parse(this.history); this.history = null; this.save(false); UI.toast("AÇÃO_REVERTIDA", false); },
         addAgent() {
@@ -353,6 +380,7 @@
     firebase.auth().onAuthStateChanged(user => { if (user) App.initCloud(); });
     firebase.auth().signInAnonymously().catch(err => {
         console.error('ERRO_AUTH_NUVEM:', err);
+        cloudPronta = false; socketConectado = false; setCloudBadge();
         UI.toast('ERRO_AUTENTICACAO_NUVEM (modo local)', false);
     });
 </script>
