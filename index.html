@@ -155,6 +155,7 @@
                 <button id="btnGeduc" class="nav-btn" onclick="UI.setTab('geduc')">02_EQUIPE_GEDUC</button>
                 <button id="btnReserva" class="nav-btn" onclick="UI.setTab('reserva')">03_BANCO_RESERVA</button>
                 <button class="nav-btn" onclick="UI.abrirLista('selecionados')">📋 VER_ESCALADOS</button>
+                <button class="nav-btn" onclick="UI.abrirLista('pendentes')">⏳ VER_PENDENTES (<span id="countPendentes">0</span>)</button>
             </nav>
             <button class="btn-reset" onclick="App.resetShift()">REINICIAR ESCALA</button>
         </aside>
@@ -351,6 +352,10 @@
             document.getElementById('perEscala').innerText = Math.round((esc/total)*100) + "%_DO_TOTAL";
             document.getElementById('valDisp').innerText = disp;
             document.getElementById('perDisp').innerText = Math.round((disp/total)*100) + "%_DO_TOTAL";
+
+            const pendentesTotal = App.data.ativos.filter(a => a.s === 'disponivel').length;
+            const elPend = document.getElementById('countPendentes');
+            if (elPend) elPend.innerText = pendentesTotal;
 
             const colors = [document.body.getAttribute('data-theme')==='light'?'#248a3d':'#34c759', '#00b4ff', '#ff3b30'];
             if (!this.chart) {
