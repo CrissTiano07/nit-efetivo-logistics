@@ -6,6 +6,9 @@
     <title>NIT-EFETIVO // LOGISTICS V9.9</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:ital,wght@0,300;0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <style>
 :root {
     /* MODO DARK (Padrão ) */
@@ -185,6 +188,21 @@
 </div>
 
 <script>
+    // ====== CONFIG_NUVEM (Firebase RTDB) ======
+    // Preencha com o MESMO config do projeto Firebase já usado na NIT (Console > Configurações do projeto > SDK).
+    // DB_PATH usa um nó próprio ('nit_efetivo') pra não colidir com os dados da NIT no mesmo Realtime Database.
+    const firebaseConfig = {
+        apiKey: "COLE_AQUI_SUA_API_KEY",
+        authDomain: "SEU_PROJETO.firebaseapp.com",
+        databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+        projectId: "SEU_PROJETO"
+    };
+    const DB_PATH = 'nit_efetivo';
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let cloudPronta = false; // evita gravar de volta antes da 1ª leitura da nuvem
+
     const App = {
         data: { ativos: JSON.parse(localStorage.getItem('vl_ativos')) || [], reserva: JSON.parse(localStorage.getItem('vl_reserva')) || [] },
         history: null,
@@ -192,7 +210,27 @@
             if(withHistory) this.history = JSON.stringify(this.data);
             localStorage.setItem('vl_ativos', JSON.stringify(this.data.ativos)); 
             localStorage.setItem('vl_reserva', JSON.stringify(this.data.reserva)); 
+            if (cloudPronta) {
+                db.ref(DB_PATH).set({ ativos: this.data.ativos, reserva: this.data.reserva })
+                    .catch(err => { console.error('ERRO_SYNC_NUVEM:', err); UI.toast('ERRO_SYNC_NUVEM (salvo local)', false); });
+            }
             UI.render(); 
+        },
+        initCloud() {
+            db.ref(DB_PATH).on('value', snapshot => {
+                const cloud = snapshot.val();
+                if (cloud) {
+                    this.data.ativos = cloud.ativos || [];
+                    this.data.reserva = cloud.reserva || [];
+                } else if (this.data.ativos.length || this.data.reserva.length) {
+                    // Nuvem vazia mas há dado local (primeiro uso pós-migração): sobe o que já existe.
+                    db.ref(DB_PATH).set({ ativos: this.data.ativos, reserva: this.data.reserva });
+                }
+                cloudPronta = true;
+                localStorage.setItem('vl_ativos', JSON.stringify(this.data.ativos));
+                localStorage.setItem('vl_reserva', JSON.stringify(this.data.reserva));
+                UI.render();
+            }, err => { console.error('ERRO_LEITURA_NUVEM:', err); UI.toast('SEM_CONEXAO_NUVEM (modo local)', false); });
         },
         undo() { if(!this.history) return; this.data = JSON.parse(this.history); this.history = null; this.save(false); UI.toast("AÇÃO_REVERTIDA", false); },
         addAgent() {
@@ -308,7 +346,15 @@
     function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); UI.render(); }
     function exportarDados() { const b = new Blob([JSON.stringify(App.data)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'vl_gold_v9.json'; a.click(); }
     setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR'); }, 1000);
-    UI.render();
+    UI.render(); // pintura instantânea com cache local
+
+    // Autenticação anônima: exige que a regra do Firebase (auth != null) seja satisfeita
+    // antes de ler/escrever — bloqueia acesso de quem não passa pelo seu próprio projeto.
+    firebase.auth().onAuthStateChanged(user => { if (user) App.initCloud(); });
+    firebase.auth().signInAnonymously().catch(err => {
+        console.error('ERRO_AUTH_NUVEM:', err);
+        UI.toast('ERRO_AUTENTICACAO_NUVEM (modo local)', false);
+    });
 </script>
 </body>
 </html>
