@@ -60,6 +60,8 @@
         .field-label { font-size: 0.5rem; font-weight: 900; opacity: 0.4; text-transform: uppercase; letter-spacing: 2px; font-style: italic; margin-bottom: 8px; display: block; }
         input, select { width: 100%; padding: 14px; background: var(--input-bg); border: 1px solid var(--line); color: var(--text); font-size: 0.8rem; border-radius: 8px; margin-bottom: 12px; outline: none; transition: 0.2s; }
         input:focus { border-color: var(--info); background: var(--surface); }
+        select option { background: var(--surface); color: var(--text); }
+        select option:hover, select option:checked, select option:focus { background: var(--info); color: #ffffff; }
         
         nav { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .nav-btn { background: transparent; color: var(--text); border: 1px solid var(--line); text-align: left; padding: 18px; font-size: 0.65rem; font-weight: 900; border-radius: var(--btn-radius); cursor: pointer; transition: 0.2s; text-transform: uppercase; font-style: italic; opacity: 0.4; }
@@ -421,9 +423,9 @@
             corpo.innerHTML = lista.filter(a => a.n.toLowerCase().includes(search)).map((a) => {
                 const realIdx = (this.currentTab !== 'reserva') ? App.data.ativos.indexOf(a) : App.data.reserva.indexOf(a);
                 return `<tr class="row-item status-${a.s}">
-                    <td style="padding: 18px 20px;" ondblclick="App.editAgent(${realIdx})">
-                        <div class="agent-main" onclick="UI.copy('${a.n}',${realIdx},'n')">${a.n}</div>
-                        <div class="agent-sub" onclick="UI.copy('${a.tel}',${realIdx},'t')">ID: ${a.tel} | ${a.bairro} | ${a.transp}</div>
+                    <td style="padding: 18px 20px;" ondblclick="App.editAgent(${realIdx})" title="Duplo clique: editar registro (nome, telefone, setor, bairro, transporte)">
+                        <div class="agent-main" onclick="UI.copy('${a.n}',${realIdx},'n')" title="Clique: copiar nome${this.currentTab!=='reserva'?' e marcar como escalado':''}">${a.n}</div>
+                        <div class="agent-sub" onclick="UI.copy('${a.tel}',${realIdx},'t')" title="Clique: copiar telefone">ID: ${a.tel} | ${a.bairro} | ${a.transp}</div>
                         ${a.obs?`<div style="font-size:0.45rem; color:var(--danger); font-weight:900; margin-top:4px;">! ${a.obs}</div>`:''}
                     </td>
                     <td style="text-align:right; padding-right:15px;">
