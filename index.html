@@ -128,6 +128,39 @@
     </div>
 </div>
 
+<div id="modalEdit" class="modal">
+    <div class="modal-content">
+        <div class="field-label" style="color:var(--info); font-size: 0.6rem; margin-bottom: 20px;">EDITAR_REGISTRO</div>
+        <input type="text" id="editNome" placeholder="NOME COMPLETO">
+        <input type="text" id="editTel" placeholder="IDENTIFICAÇÃO (TEL)">
+        <select id="editSetor">
+            <option value="OPERAÇÃO GERAL">SETOR: OPERAÇÃO GERAL</option>
+            <option value="GEDUC">SETOR: GEDUC</option>
+        </select>
+        <input type="text" id="editBairro" placeholder="BAIRRO ATUANTE">
+        <select id="editTransp">
+            <option value="PRÓPRIO">TRANSPORTE: PRÓPRIO</option>
+            <option value="COLETIVO">TRANSPORTE: COLETIVO</option>
+        </select>
+        <div style="display:flex; gap:12px; margin-top: 8px;">
+            <button class="btn-action" style="flex:2;" onclick="App.salvarEdicao()">SALVAR_ALTERAÇÕES</button>
+            <button class="nav-btn" style="flex:1; opacity:1; padding:16px;" onclick="document.getElementById('modalEdit').style.display='none'">CANCELAR</button>
+        </div>
+        <button class="btn-reset" onclick="App.deleteAgent(UI.editIdx)">EXCLUIR_REGISTRO</button>
+    </div>
+</div>
+
+<div id="modalConfirm" class="modal">
+    <div class="modal-content" style="width: 420px;">
+        <div class="field-label" style="color:var(--danger); font-size: 0.6rem; margin-bottom: 18px;">⚠ CONFIRMAÇÃO_NECESSÁRIA</div>
+        <div id="confirmMsg" style="font-size:0.8rem; line-height:1.6; margin-bottom:28px; white-space:pre-line;"></div>
+        <div style="display:flex; gap:12px;">
+            <button class="nav-btn" style="flex:1; opacity:1; padding:16px;" onclick="UI.fecharConfirm()">CANCELAR</button>
+            <button class="btn-reset" style="flex:1; margin-top:0;" id="confirmBtnOk">CONFIRMAR</button>
+        </div>
+    </div>
+</div>
+
 <div class="premium-container">
     <header class="header">
         <div><div class="system-tag">"NIT-ESCALA-LOGÍSTICA // O SILÊNCIO DAS SOMBRAS É O ECO DA PRÓPRIA LUZ"</div><div id="clock">00:00:00</div></div>
@@ -311,11 +344,28 @@
         },
         editAgent(idx) {
             const list = UI.currentTab === 'reserva' ? this.data.reserva : this.data.ativos;
-            const n = prompt("EDITAR NOME:", list[idx].n);
-            const t = prompt("EDITAR IDENTIFICAÇÃO:", list[idx].tel);
-            if(n !== null) list[idx].n = n.toUpperCase();
-            if(t !== null) list[idx].tel = t;
+            const a = list[idx];
+            if (!a) return;
+            UI.editIdx = idx;
+            document.getElementById('editNome').value = a.n;
+            document.getElementById('editTel').value = a.tel;
+            document.getElementById('editSetor').value = a.t;
+            document.getElementById('editBairro').value = a.bairro;
+            document.getElementById('editTransp').value = a.transp;
+            document.getElementById('modalEdit').style.display = 'block';
+        },
+        salvarEdicao() {
+            const list = UI.currentTab === 'reserva' ? this.data.reserva : this.data.ativos;
+            const a = list[UI.editIdx];
+            if (!a) return;
+            a.n = document.getElementById('editNome').value.trim().toUpperCase();
+            a.tel = document.getElementById('editTel').value.trim() || 'S/N';
+            a.t = document.getElementById('editSetor').value;
+            a.bairro = document.getElementById('editBairro').value.trim().toUpperCase() || 'N/D';
+            a.transp = document.getElementById('editTransp').value;
+            document.getElementById('modalEdit').style.display = 'none';
             this.save();
+            UI.toast('REGISTRO_ATUALIZADO');
         },
         updateStatus(idx, val) {
             const list = UI.currentTab === 'reserva' ? this.data.reserva : this.data.ativos;
@@ -325,20 +375,36 @@
             else { list[idx].s = val; list[idx].obs = ""; }
             this.save(); UI.toast("ESTADO_SINCRONIZADO");
         },
-        resetShift() { if(confirm("REINICIAR ESCALA?")) { this.data.ativos.forEach(a => { if(a.s === 'escalado') a.s = 'disponivel'; }); this.save(); } },
+        resetShift() {
+            UI.confirmar('Reiniciar escala?\nTodos os registros "ESCALADO" voltam para "DISPONÍVEL".', () => {
+                this.data.ativos.forEach(a => { if(a.s === 'escalado') a.s = 'disponivel'; });
+                this.save();
+            });
+        },
         deleteAgent(idx) {
             const list = UI.currentTab === 'reserva' ? this.data.reserva : this.data.ativos;
             const alvo = list[idx];
             if (!alvo) return;
-            if (!confirm(`EXCLUIR "${alvo.n}" PERMANENTEMENTE?\nEsta ação não pode ser desfeita pelo botão DESFAZER.`)) return;
-            list.splice(idx, 1);
-            this.save(false);
-            UI.toast('REGISTRO_EXCLUÍDO', false);
+            UI.confirmar(`Excluir "${alvo.n}" permanentemente?\nEsta ação não pode ser desfeita pelo botão DESFAZER.`, () => {
+                list.splice(idx, 1);
+                this.save(false);
+                document.getElementById('modalEdit').style.display = 'none';
+                UI.toast('REGISTRO_EXCLUÍDO', false);
+            });
         }
     };
 
     const UI = {
-        currentTab: 'rotina', chart: null, modalTipo: null, modalTurno: 'TODOS',
+        currentTab: 'rotina', chart: null, modalTipo: null, modalTurno: 'TODOS', editIdx: null, confirmCallback: null,
+        confirmar(mensagem, callback) {
+            document.getElementById('confirmMsg').innerText = mensagem;
+            this.confirmCallback = callback;
+            document.getElementById('modalConfirm').style.display = 'block';
+        },
+        fecharConfirm() {
+            document.getElementById('modalConfirm').style.display = 'none';
+            this.confirmCallback = null;
+        },
         setTab(tab) {
             this.currentTab = tab;
             ['btnRotina','btnGeduc','btnReserva'].forEach(id => document.getElementById(id)?.classList.remove('active'));
@@ -429,6 +495,11 @@
             t.style.display='block'; setTimeout(()=>t.style.display='none', 4000); 
         }
     };
+    document.getElementById('confirmBtnOk').onclick = () => {
+        if (UI.confirmCallback) UI.confirmCallback();
+        UI.fecharConfirm();
+    };
+
     function detectarDuplicados() {
         const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
         const nomesAtivos = new Set(App.data.ativos.map(a => norm(a.n)));
