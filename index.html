@@ -156,7 +156,7 @@
                 <button class="btn-action" onclick="App.addAgent()">ADICIONAR À BASE</button>
             </div>
             <nav>
-                <button id="btnRotina" class="nav-btn active" onclick="UI.setTab('rotina')">01_EQUIPE_ROTINA</button>
+                <button id="btnRotina" class="nav-btn active" onclick="UI.setTab('rotina')">01_OPERAÇÃO_GERAL</button>
                 <button id="btnGeduc" class="nav-btn" onclick="UI.setTab('geduc')">02_EQUIPE_GEDUC</button>
                 <button id="btnReserva" class="nav-btn" onclick="UI.setTab('reserva')">03_BANCO_RESERVA</button>
                 <button class="nav-btn" onclick="UI.abrirLista('selecionados')">📋 VER_ESCALADOS</button>
@@ -223,6 +223,21 @@
     let cloudPronta = false; // evita gravar de volta antes da 1ª leitura da nuvem
     let socketConectado = false; // reflete .info/connected (conexão real com o Firebase)
 
+    // Domínio válido de setor. Qualquer valor fora disso (ex: "MANHÃ", "TARDE" — herdados de
+    // import antigo que usava o campo pra turno de horário, não setor) é normalizado automaticamente.
+    const SETORES_VALIDOS = ['OPERAÇÃO GERAL', 'GEDUC'];
+    function normalizarSetores() {
+        const corrigidos = [];
+        [...App.data.ativos, ...App.data.reserva].forEach(a => {
+            if (!SETORES_VALIDOS.includes(a.t)) { corrigidos.push({ nome: a.n, setorAntigo: a.t }); a.t = 'OPERAÇÃO GERAL'; }
+        });
+        if (corrigidos.length) {
+            console.table(corrigidos);
+            UI.toast(`${corrigidos.length}_SETOR(ES)_CORRIGIDO — ver console`, false);
+            App.save(false);
+        }
+    }
+
     function setCloudBadge() {
         const el = document.getElementById('cloudStatus');
         const txt = document.getElementById('cloudStatusText');
@@ -265,6 +280,7 @@
                 localStorage.setItem('vl_ativos', JSON.stringify(this.data.ativos));
                 localStorage.setItem('vl_reserva', JSON.stringify(this.data.reserva));
                 UI.render();
+                normalizarSetores();
             }, err => { console.error('ERRO_LEITURA_NUVEM:', err); cloudPronta = false; setCloudBadge(); UI.toast('SEM_CONEXAO_NUVEM (modo local)', false); });
         },
         undo() { if(!this.history) return; this.data = JSON.parse(this.history); this.history = null; this.save(false); UI.toast("AÇÃO_REVERTIDA", false); },
@@ -284,6 +300,7 @@
                     if(d.ativos) this.data.ativos = d.ativos;
                     if(d.reserva) this.data.reserva = d.reserva;
                     this.save(); UI.toast("BASE_IMPORTADA", false);
+                    normalizarSetores();
                 } catch(err) { alert("ERRO_JSON_INVALIDO"); }
             };
             reader.readAsText(file); input.value = '';
