@@ -107,6 +107,9 @@
         .pill-filtro { background: transparent; border: 1px solid var(--line); color: var(--text); opacity: 0.5; padding: 7px 15px; border-radius: 20px; font-family: 'JetBrains Mono'; font-size: 0.6rem; font-weight: 900; cursor: pointer; transition: 0.2s; }
         .pill-filtro:hover { opacity: 0.85; }
         .pill-filtro.active { opacity: 1; border-color: var(--info); color: var(--info); background: rgba(0,180,255,0.08); }
+
+        .btn-delete { background: transparent; border: none; color: var(--danger); opacity: 0.35; cursor: pointer; font-size: 0.85rem; font-weight: 900; padding: 6px; transition: 0.2s; }
+        .btn-delete:hover { opacity: 1; transform: scale(1.15); }
     </style>
 </head>
 <body>
@@ -281,6 +284,7 @@
                 localStorage.setItem('vl_reserva', JSON.stringify(this.data.reserva));
                 UI.render();
                 normalizarSetores();
+                detectarDuplicados();
             }, err => { console.error('ERRO_LEITURA_NUVEM:', err); cloudPronta = false; setCloudBadge(); UI.toast('SEM_CONEXAO_NUVEM (modo local)', false); });
         },
         undo() { if(!this.history) return; this.data = JSON.parse(this.history); this.history = null; this.save(false); UI.toast("AÇÃO_REVERTIDA", false); },
@@ -321,7 +325,16 @@
             else { list[idx].s = val; list[idx].obs = ""; }
             this.save(); UI.toast("ESTADO_SINCRONIZADO");
         },
-        resetShift() { if(confirm("REINICIAR ESCALA?")) { this.data.ativos.forEach(a => { if(a.s === 'escalado') a.s = 'disponivel'; }); this.save(); } }
+        resetShift() { if(confirm("REINICIAR ESCALA?")) { this.data.ativos.forEach(a => { if(a.s === 'escalado') a.s = 'disponivel'; }); this.save(); } },
+        deleteAgent(idx) {
+            const list = UI.currentTab === 'reserva' ? this.data.reserva : this.data.ativos;
+            const alvo = list[idx];
+            if (!alvo) return;
+            if (!confirm(`EXCLUIR "${alvo.n}" PERMANENTEMENTE?\nEsta ação não pode ser desfeita pelo botão DESFAZER.`)) return;
+            list.splice(idx, 1);
+            this.save(false);
+            UI.toast('REGISTRO_EXCLUÍDO', false);
+        }
     };
 
     const UI = {
@@ -351,6 +364,9 @@
                         <select onchange="App.updateStatus(${realIdx}, this.value)" style="background:transparent; border:none; font-weight:900; color:inherit; font-size:0.6rem; cursor:pointer;">
                             ${this.currentTab!=='reserva'?`<option value="disponivel" ${a.s==='disponivel'?'selected':''}>✓ DISP</option><option value="escalado" ${a.s==='escalado'?'selected':''}>⚐ ESCAL</option><option value="ausente" ${a.s==='ausente'?'selected':''}>⚠ AUSEN</option><option value="mover_reserva">➤ RESERVA</option>`:`<option value="mover_ativos">⟲ ATIVOS</option>`}
                         </select>
+                    </td>
+                    <td style="padding-right:10px;">
+                        <button class="btn-delete" onclick="App.deleteAgent(${realIdx})" title="Excluir registro">✕</button>
                     </td></tr>`}).join('');
             this.updateDash();
         },
@@ -413,6 +429,15 @@
             t.style.display='block'; setTimeout(()=>t.style.display='none', 4000); 
         }
     };
+    function detectarDuplicados() {
+        const norm = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        const nomesAtivos = new Set(App.data.ativos.map(a => norm(a.n)));
+        const duplicados = App.data.reserva.filter(r => nomesAtivos.has(norm(r.n)));
+        if (duplicados.length) {
+            console.log('POSSÍVEIS_DUPLICATAS (mesmo nome em ATIVOS e RESERVA):', duplicados.map(d => d.n));
+            UI.toast(`${duplicados.length}_POSSÍVEL(EIS)_DUPLICATA — ver console`, false);
+        }
+    } 
     function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); UI.render(); }
     function exportarDados() { const b = new Blob([JSON.stringify(App.data)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'vl_gold_v9.json'; a.click(); }
     setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('pt-BR'); }, 1000);
